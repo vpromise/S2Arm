@@ -66,6 +66,10 @@ class Fail(Exception):
     """推包失败：reason 是给调用方 fin / 启动器看的一句话"""
 
 
+class NeedsPlayer(Fail):
+    """资源已传完，只差玩家在手机上打开 App 解开（电脑拉不起 App，#192）：不是传输失败，调用方按「需要玩家操作」收尾"""
+
+
 def devpush_path(given=None, env=None):
     """s2a-devpush：显式给的 > S2A_DEVPUSH > 启动器发版内置（S2A_PREBUILT_TOOLS/devpush/）> 仓库编出的 build/devpush/release > PATH"""
     env = os.environ if env is None else env
@@ -422,6 +426,7 @@ def send(dev, pack, work, say=print):
 #   STALL_S = 180 的依据：同一次实测 unpack.log 单包（≤1 GB）最慢 43.5 秒（第 14 包 7728 个文件 1023 MB），App 冷起到第一行进度 38 秒（含第 1 包 33.1 秒）；
 #   取单包最慢的约 4 倍，比任何一包正常耗时都长，又不至于真卡住时让玩家干等十几分钟
 STALL_S = 180
+OPEN_BY_HAND = "在 iPhone 上打开 S2Arm，选这款游戏，保持在前台别锁屏，等它导入完就能玩"
 PROGRESS = re.compile(r"进度：解开 \S+（(\d+)/(\d+)）")
 
 
@@ -437,7 +442,11 @@ def apply(dev, pack, work, nb, say=print, sleep=time.sleep, now=time.time, stall
     u0 = len((read(dev, unpack_log(dev), work, "r.unpack0") or "").splitlines())
     done = re.compile(r"解开 \d+ 个包 .*\.applied = " + re.escape(want or "-"))
     say("起一次 App 解开推送包（S2A_PACK_APPLY_ONLY=1）")
-    dev.launch({"S2A_PACK_APPLY_ONLY": "1", **({"S2A_LAUNCH_CTX": dev.ctx} if dev.ctx else {})})   # 容器：起哪一款由启动上下文定
+    cant_open = None
+    try:
+        dev.launch({"S2A_PACK_APPLY_ONLY": "1", **({"S2A_LAUNCH_CTX": dev.ctx} if dev.ctx else {})})   # 容器：起哪一款由启动上下文定
+    except Fail as e:   # 拉起靠电脑侧的设备服务，玩家机上常常没有（#192）；资源已在手机上，照样等玩家手动打开后解完
+        cant_open = str(e); say(f"资源包已传完。{OPEN_BY_HAND}")
     seen, last = 0, now()
     while True:
         new = (read(dev, unpack_log(dev), work, "r.unpack1") or "").splitlines()[u0:]
@@ -449,6 +458,8 @@ def apply(dev, pack, work, nb, say=print, sleep=time.sleep, now=time.time, stall
         elif now() - last > stall:
             break
         sleep(3)
+    if cant_open:
+        raise NeedsPlayer(f"资源包已传完，还差最后一步：{OPEN_BY_HAND}（电脑这边打不开手机上的 App：{cant_open}）")
     raise Fail(f"资源包推进去了，但机上解包 {stall} 秒没有新进展（停在第 {seen} 包）：打开这款游戏、保持在前台等它导入完" if seen else
                f"资源包推进去了，但起 App 后 {stall} 秒机上解包没有开始：打开这款游戏、保持在前台等它导入完")
 

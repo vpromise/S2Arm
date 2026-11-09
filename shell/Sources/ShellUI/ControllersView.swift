@@ -9,8 +9,11 @@ public struct ControllersView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     public var controllers: [ControllerInfo]
     public var onBack: () -> Void
-    public init(controllers: [ControllerInfo], onBack: @escaping () -> Void = {}, padMap: PadMap = PadMap()) {
+    /// False when the host has no handler for the shell's own button mapping: its row is not shown.
+    public var showsMapping: Bool
+    public init(controllers: [ControllerInfo], onBack: @escaping () -> Void = {}, padMap: PadMap = PadMap(), showsMapping: Bool = true) {
         self.padMap = padMap
+        self.showsMapping = showsMapping
         self.controllers = controllers
         self.onBack = onBack
     }
@@ -78,7 +81,9 @@ public struct ControllersView: View {
     private var mapping: some View {
         VStack(alignment: .leading, spacing: 14) {
             SectionHeading(title: ShellStrings.text("Buttons"))
-            PadMappingEntryRow(gameID: Self.mappingID, rows: PadMappingRows.global(padMap), targetID: "ctl.mapping").id("ctl.mapping")
+            if showsMapping {
+                PadMappingEntryRow(gameID: Self.mappingID, rows: PadMappingRows.global(padMap), targetID: "ctl.mapping").id("ctl.mapping")
+            }
             ButtonTestEntryRow().id("ctl.test")
         }
     }

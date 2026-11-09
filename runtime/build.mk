@@ -77,7 +77,7 @@ ifeq ($(shell uname -s),Darwin)
 .PHONY: native-test-input_config_apple
 native-test-input_config_apple:
 	@mkdir -p $(BUILD)/tests
-	$(CC) $(CFLAGS) $(NATIVE_INC) -Iios -fobjc-arc -o $(BUILD)/tests/t_input_config_apple runtime/tests/t_input_config_apple.m runtime/src/input_config.c ios/input_config.m -framework AppKit -framework CoreGraphics -framework GameController -framework QuartzCore
+	$(CC) $(CFLAGS) $(NATIVE_INC) -Iios -fobjc-arc -o $(BUILD)/tests/t_input_config_apple runtime/tests/t_input_config_apple.m runtime/src/input_config.c runtime/src/pad.c ios/input_config.m -framework AppKit -framework CoreGraphics -framework GameController -framework QuartzCore
 	$(BUILD)/tests/t_input_config_apple
 TEST_TARGETS += native-test-input_config_apple
 endif

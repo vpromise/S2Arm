@@ -233,7 +233,7 @@ public struct LibraryView: View {
                 if controllersOpen { Group {
                     Color.black.opacity(0.55 * (1 - min(1, edgeDrag / overlay))).ignoresSafeArea().accessibilityHidden(true)
                         .onTapGesture { back() }
-                    ControllersView(controllers: controllers, onBack: back, padMap: globalPadMap)
+                    ControllersView(controllers: controllers, onBack: back, padMap: globalPadMap, showsMapping: actions.onGlobalPadMapChange != nil)
                         .accessibilityHidden(choice != nil || padMapping != nil || buttonTestOpen)
                         .frame(width: overlay)
                         .frame(maxHeight: .infinity)
@@ -327,7 +327,7 @@ public struct LibraryView: View {
         .environment(\.shellOpenButtonTest, { openButtonTest() })
         .environment(\.shellIgnoresPress, { [gate] in gate.isSystemEcho })
         .environment(\.shellShowHelp, { game in openHelp(game.id) })
-        .environment(\.shellAskDelete, { game in openDelete(game.id) })
+        .environment(\.shellAskDelete, actions.onDeleteGame == nil ? nil : { game in openDelete(game.id) })
         .environment(\.shellFocus, focus)
         .environment(\.shellInputDevice, device)
         .foregroundStyle(.white)
@@ -462,20 +462,20 @@ public struct LibraryView: View {
         a.onPlay = { if !echo() { o.onPlay($0) } }
         a.onChange = { if !echo() { o.onChange($0, $1, $2) } }
         a.onPickGameData = { if !echo() { o.onPickGameData($0) } }
-        a.onUseAppData = { if !echo() { o.onUseAppData($0) } }
-        a.onPickCloudSaves = { if !echo() { o.onPickCloudSaves($0) } }
-        a.onDisableCloudSaves = { if !echo() { o.onDisableCloudSaves($0) } }
-        a.onResetDefaults = { if !echo() { o.onResetDefaults($0) } }
-        a.onShowLog = { if !echo() { o.onShowLog($0) } }
-        a.onAppUpdate = { if !echo() { o.onAppUpdate() } }
-        a.onPickShellData = { if !echo() { o.onPickShellData() } }
-        a.onPickShellCloud = { if !echo() { o.onPickShellCloud() } }
-        a.onUseShellCloud = { if !echo() { o.onUseShellCloud($0) } }
-        a.onClearShellData = { if !echo() { o.onClearShellData() } }
-        a.onClearShellCloud = { if !echo() { o.onClearShellCloud() } }
-        a.onGlobalPadMapChange = { if !echo() { o.onGlobalPadMapChange($0, $1) } }
-        a.onGlobalPadMapReset = { if !echo() { o.onGlobalPadMapReset() } }
-        a.onDeleteGame = { if !echo() { o.onDeleteGame($0, $1) } }
+        a.onUseAppData = o.onUseAppData.map { act in { if !echo() { act($0) } } }
+        a.onPickCloudSaves = o.onPickCloudSaves.map { act in { if !echo() { act($0) } } }
+        a.onDisableCloudSaves = o.onDisableCloudSaves.map { act in { if !echo() { act($0) } } }
+        a.onResetDefaults = o.onResetDefaults.map { act in { if !echo() { act($0) } } }
+        a.onShowLog = o.onShowLog.map { act in { if !echo() { act($0) } } }
+        a.onAppUpdate = o.onAppUpdate.map { act in { if !echo() { act() } } }
+        a.onPickShellData = o.onPickShellData.map { act in { if !echo() { act() } } }
+        a.onPickShellCloud = o.onPickShellCloud.map { act in { if !echo() { act() } } }
+        a.onUseShellCloud = o.onUseShellCloud.map { act in { if !echo() { act($0) } } }
+        a.onClearShellData = o.onClearShellData.map { act in { if !echo() { act() } } }
+        a.onClearShellCloud = o.onClearShellCloud.map { act in { if !echo() { act() } } }
+        a.onGlobalPadMapChange = o.onGlobalPadMapChange.map { act in { if !echo() { act($0, $1) } } }
+        a.onGlobalPadMapReset = o.onGlobalPadMapReset.map { act in { if !echo() { act() } } }
+        a.onDeleteGame = o.onDeleteGame.map { act in { if !echo() { act($0, $1) } } }
         return a
     }
     /// An action that did not come from a controller or key came from touch: hints and focus ring step back. False when
@@ -499,8 +499,8 @@ public struct LibraryView: View {
         switch detail.game.state {
         case .playable: actions.onPlay(detail.id)
         case .needsGameData: actions.onPickGameData(detail.id)
-        case .needsAppUpdate: actions.onAppUpdate()
-        case .broken: actions.onShowLog(detail.id)
+        case .needsAppUpdate: actions.onAppUpdate?()
+        case .broken: actions.onShowLog?(detail.id)
         }
     }
     private func select(_ id: String) {
@@ -556,7 +556,7 @@ public struct LibraryView: View {
         deleteGameID = nil
         settingsOpen = false
         focus.id = nil
-        actions.onDeleteGame(id, saves)
+        actions.onDeleteGame?(id, saves)
     }
     private func openChoice(_ request: ChoiceRequest) {
         guard noteTouch() else { return }
@@ -613,14 +613,14 @@ public struct LibraryView: View {
     private func pickPadValue(_ row: String, _ value: String) {
         guard noteTouch() else { return }
         guard let id = padMapping?.gameID else { return }
-        if id == ControllersView.mappingID { actions.onGlobalPadMapChange(row, value) } else { actions.onChange(id, row, value) }
+        if id == ControllersView.mappingID { actions.onGlobalPadMapChange?(row, value) } else { actions.onChange(id, row, value) }
         closePadRow()
     }
     private func resetPadMapping() {
         guard noteTouch() else { return }
         guard let id = padMapping?.gameID else { return }
         let global = id == ControllersView.mappingID
-        if global { actions.onGlobalPadMapReset() } else { actions.onChange(id, PadMappingRows.resetID, "") }
+        if global { actions.onGlobalPadMapReset?() } else { actions.onChange(id, PadMappingRows.resetID, "") }
         // Reset is disabled now: the focus goes to the swap, which is back at its default.
         focus.id = "map.swap." + (global ? "0" : PadMappingRows.follow)
     }

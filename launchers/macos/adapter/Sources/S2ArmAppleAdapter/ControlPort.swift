@@ -69,6 +69,13 @@ final class ControlStateCache: @unchecked Sendable {
     public nonisolated let token: String
     public private(set) var port: UInt16 = 0
     public var controlFile: URL { privateRoot.appendingPathComponent("control.json") }
+
+    /// 控制口起不来时也就没有 /state：把原因写进数据目录，s2armctl start 读它报给用户。写不上不影响启动器本身。
+    public nonisolated static func reportStartFailure(privateRoot: URL, why: String) {
+        try? FileManager.default.createDirectory(at: privateRoot, withIntermediateDirectories: true)
+        try? Data(why.utf8).write(to: errorFile(privateRoot))
+    }
+    private nonisolated static func errorFile(_ root: URL) -> URL { root.appendingPathComponent("control.error") }
     private let privateRoot: URL
     private let listener: NWListener
     private let state: @MainActor () -> [String: Any]
@@ -132,6 +139,7 @@ final class ControlStateCache: @unchecked Sendable {
             fail("写不了 " + controlFile.path)
             return
         }
+        try? FileManager.default.removeItem(at: Self.errorFile(privateRoot))
         NSLog("S2Arm 控制口：127.0.0.1:\(port)（\(controlFile.path)）")
         readied(port)
     }

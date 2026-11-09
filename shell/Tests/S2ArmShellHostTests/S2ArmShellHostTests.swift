@@ -28,6 +28,16 @@ import ShellUI
     #expect(Catalogue.load(path: "/nonexistent/s2a.json").problems.count == 1)
 }
 
+/// 宿主没接的功能必须是 nil：界面据此不显示按钮。接上一项，就把它从这张表挪走，入口自动出现。
+@MainActor @Test func unwiredActionsStayNilSoTheirButtonsAreHidden() throws {
+    let data = Data(#"{"games":[]}"#.utf8)
+    let a = S2ArmShellHostModel(catalogue: Catalogue.parse(data, baseDirectory: URL(fileURLWithPath: "/"))).actions
+    #expect(a.onUseAppData == nil && a.onPickCloudSaves == nil && a.onDisableCloudSaves == nil && a.onUseShellCloud == nil)
+    #expect(a.onResetDefaults == nil && a.onShowLog == nil && a.onAppUpdate == nil && a.onDeleteGame == nil)
+    #expect(a.onPickShellData == nil && a.onClearShellData == nil && a.onPickShellCloud == nil && a.onClearShellCloud == nil)
+    #expect(a.onGlobalPadMapChange == nil && a.onGlobalPadMapReset == nil)
+}
+
 @MainActor @Test func playOnlyForPlayable() {
     let data = Data(#"{"schema":1,"games":[{"title_id":"0100000000010000","name":"A"},{"title_id":"0100000000020000","name":"B","state":"needs_game_data"}]}"#.utf8)
     var played: [String] = []

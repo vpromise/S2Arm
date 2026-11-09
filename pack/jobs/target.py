@@ -148,6 +148,30 @@ def cable_first(rows):
     return [r for r in rows if r.get("wired")] or rows
 
 
+def device_list(c, timeout=60):
+    """devicectl 的原始设备表、读不到的原因（读到时为空）、退出码与原文。「读不到」和「没连」要分开报，玩家插着手机时不能说没连"""
+    from diag import devicectl, NO_COREDEVICE
+    try:
+        rc, data, raw = devicectl(c, "list", "devices", timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return [], "读取设备列表超时：解锁手机，重新插一次数据线再试。", "timeout", f"超过 {timeout} 秒"
+    except OSError as e:
+        return [], "读不到设备列表：打开一次 Xcode，等它装完附加组件后再试。", "oserror", str(e)
+    if rc:
+        why = NO_COREDEVICE if rc == 127 else "读不到设备列表：打开一次 Xcode，等它装完附加组件后再试。"
+        return [], why, rc, raw
+    return data.get("result", {}).get("devices", []), "", 0, raw
+
+
+def usb_idevices():
+    """USB 上看得到的 iPhone / iPad 名称（devicectl 只列 Xcode 配对过的设备，没配对的要靠这里知道「其实插着」）"""
+    try:
+        out = subprocess.run(["ioreg", "-r", "-c", "IOUSBHostDevice", "-l", "-w0"], capture_output=True, text=True, timeout=10).stdout
+    except (subprocess.TimeoutExpired, OSError):
+        return []
+    return re.findall(r'"USB Product Name" = "((?:iPhone|iPad)[^"]*)"', out)
+
+
 def connected(c, with_link=False):
     """连着线、已信任的 iPhone / iPad：[{id, udid, name, model, productType, gpuArch, os}]；with_link 多带 tunnel / wired"""
     from diag import devicectl

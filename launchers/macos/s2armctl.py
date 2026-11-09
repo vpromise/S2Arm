@@ -120,12 +120,24 @@ def launch_args(app, root=None, custom=None):
     if WINDOWS: return [app, '--control'] + ([f'--data-root={root}'] if custom else [])
     return ['open', app, '--args', '--control'] + ([f'--data-root={root}'] if custom else [])
 
+def start_failure(path, since):
+    # App 起不来控制口时把原因写在这里；只认这次启动之后写的
+    try:
+        if os.path.getmtime(path) <= since: return ''
+        with open(path, encoding='utf-8') as f: why = f.read().strip()
+    except OSError: return ''
+    if why.startswith('Private job root'):   # Windows 只接受 S2Arm 自己建的数据目录（权限不继承上级）
+        why += '（这个数据目录不是 S2Arm 自己建的：请把 --data-root 换成一个还不存在的路径，S2Arm 会自己建）'
+    return why
+
 def start(app):
     cj = os.path.join(ROOT, 'control.json')
+    err = os.path.join(ROOT, 'control.error')
     try:
         if alive(info()['pid']): call('GET', '/state', timeout=3); print(f'控制口已就绪：127.0.0.1:{info()["port"]}（pid {info()["pid"]}，数据目录 {ROOT}）'); return
     except SystemExit: pass
     old = os.path.getmtime(cj) if os.path.exists(cj) else 0
+    old_err = os.path.getmtime(err) if os.path.exists(err) else 0
     # 不加 -n：玩家的 S2Arm 已经开着就不再开第二个（已开着但没打开 AI 开关时，--control 不会生效，下面超时会提示）
     args = launch_args(app)
     if WINDOWS: subprocess.Popen(args, cwd=os.path.dirname(app), creationflags=0x00000008 | 0x00000200, close_fds=True)   # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP：窗口不随本命令退出
@@ -135,6 +147,8 @@ def start(app):
         if os.path.exists(cj) and os.path.getmtime(cj) > old and alive(info()['pid']):
             try: call('GET', '/state', timeout=3); print(f'控制口就绪：127.0.0.1:{info()["port"]}（pid {info()["pid"]}，数据目录 {ROOT}）'); return
             except SystemExit: pass
+        why = start_failure(err, old_err)
+        if why: sys.exit(f'控制口没起来：{why}')
         time.sleep(0.5)
     sys.exit('60 秒内控制口没就绪：如果 S2Arm 已经开着，请在它的「设置 → 让 AI 帮你操作」打开「允许 AI 操作 S2Arm」')
 

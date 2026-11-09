@@ -26,8 +26,14 @@ public static class ControlPortCases
 
         var root = Path.Combine(Path.GetTempPath(), "s2a-control-" + Guid.NewGuid().ToString("N"));
         var handled = 0;
+        PrivateJobRequest.EnsurePrivateRoot(root);
+        Directory.CreateDirectory(root);
+        ControlPort.ReportStartFailure(root, "port busy");
+        var errorFile = Path.Combine(root, ControlPort.ErrorFileName);
+        check(File.ReadAllText(errorFile) == "port busy", "control: start failure reason reaches the data root");
         using (var port = new ControlPort(root, r => { handled++; return Task.FromResult(ControlReply.Ok()); }))
         {
+            check(!File.Exists(errorFile), "control: successful start clears the old failure");
             using var info = JsonDocument.Parse(File.ReadAllText(port.ControlFile));
             check(info.RootElement.GetProperty("port").GetInt32() == port.Port && info.RootElement.GetProperty("token").GetString() == port.Token &&
                   info.RootElement.GetProperty("pid").GetInt32() == Environment.ProcessId, "control: control.json port, token, pid");

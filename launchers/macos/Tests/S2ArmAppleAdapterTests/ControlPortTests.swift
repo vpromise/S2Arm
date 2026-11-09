@@ -45,6 +45,17 @@ import XCTest
         XCTAssertFalse(FileManager.default.fileExists(atPath: port.controlFile.path), "停了就删 control.json")
     }
 
+    func testStartFailureIsWrittenAndClearedOnSuccess() throws {
+        let r = root(); defer { try? FileManager.default.removeItem(at: r) }
+        let error = r.appendingPathComponent("control.error")
+        ControlPort.reportStartFailure(privateRoot: r, why: "端口被占用")
+        XCTAssertEqual(try String(contentsOf: error, encoding: .utf8), "端口被占用")
+        let port = try ControlPort(privateRoot: r, state: { [:] }, handle: { _ in .ok() }, failed: { XCTFail($0) })
+        defer { port.stop() }
+        waitFor { port.port != 0 && !FileManager.default.fileExists(atPath: error.path) }
+        XCTAssertFalse(FileManager.default.fileExists(atPath: error.path), "起来了就清掉旧原因")
+    }
+
     func testControlFileWriteFailureIsNotOpen() throws {
         let r = root(); defer { try? FileManager.default.removeItem(at: r) }
         try FileManager.default.createDirectory(at: r.appendingPathComponent("control.json"), withIntermediateDirectories: true)

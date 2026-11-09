@@ -216,41 +216,42 @@ public struct PadSnapshot: Equatable, Sendable {
 }
 
 /// All effects leave the package through these closures. The game ID is always explicit.
+/// An optional closure the host leaves nil has no handler: the button for it is not shown, so nothing on screen does nothing.
 public struct ShellActions {
     public var onSelect: (String) -> Void
     public var onPlay: (String) -> Void
     public var onChange: (_ gameID: String, _ settingID: String, _ value: String) -> Void
     public var onPickGameData: (String) -> Void
-    public var onUseAppData: (String) -> Void
-    public var onPickCloudSaves: (String) -> Void
-    public var onDisableCloudSaves: (String) -> Void
-    public var onResetDefaults: (String) -> Void
-    public var onShowLog: (String) -> Void
-    public var onAppUpdate: () -> Void
+    public var onUseAppData: ((String) -> Void)?
+    public var onPickCloudSaves: ((String) -> Void)?
+    public var onDisableCloudSaves: ((String) -> Void)?
+    public var onResetDefaults: ((String) -> Void)?
+    public var onShowLog: ((String) -> Void)?
+    public var onAppUpdate: (() -> Void)?
     public var onBack: () -> Void
-    public var onPickShellData: () -> Void
-    public var onPickShellCloud: () -> Void
-    public var onUseShellCloud: (String) -> Void
-    public var onClearShellData: () -> Void
-    public var onClearShellCloud: () -> Void
-    public var onGlobalPadMapChange: (String, String) -> Void
-    public var onGlobalPadMapReset: () -> Void
+    public var onPickShellData: (() -> Void)?
+    public var onPickShellCloud: (() -> Void)?
+    public var onUseShellCloud: ((String) -> Void)?
+    public var onClearShellData: (() -> Void)?
+    public var onClearShellCloud: (() -> Void)?
+    public var onGlobalPadMapChange: ((String, String) -> Void)?
+    public var onGlobalPadMapReset: (() -> Void)?
     /// The button test opened (true) or closed: the host sends `PadSnapshot`s only in between.
     public var onButtonTest: (Bool) -> Void
     /// Deletes the game's data on this device and takes it off the list. `saves`: its saves go too.
-    public var onDeleteGame: (_ gameID: String, _ saves: Bool) -> Void
+    public var onDeleteGame: ((_ gameID: String, _ saves: Bool) -> Void)?
     public init(onSelect: @escaping (String) -> Void = { _ in }, onPlay: @escaping (String) -> Void = { _ in },
                 onChange: @escaping (String, String, String) -> Void = { _, _, _ in },
-                onPickGameData: @escaping (String) -> Void = { _ in }, onUseAppData: @escaping (String) -> Void = { _ in },
-                onPickCloudSaves: @escaping (String) -> Void = { _ in }, onDisableCloudSaves: @escaping (String) -> Void = { _ in },
-                onResetDefaults: @escaping (String) -> Void = { _ in }, onShowLog: @escaping (String) -> Void = { _ in },
-                onAppUpdate: @escaping () -> Void = {}, onBack: @escaping () -> Void = {},
-                onPickShellData: @escaping () -> Void = {}, onPickShellCloud: @escaping () -> Void = {},
-                onUseShellCloud: @escaping (String) -> Void = { _ in }, onClearShellData: @escaping () -> Void = {},
-                onClearShellCloud: @escaping () -> Void = {},
-                onGlobalPadMapChange: @escaping (String, String) -> Void = { _, _ in },
-                onGlobalPadMapReset: @escaping () -> Void = {}, onButtonTest: @escaping (Bool) -> Void = { _ in },
-                onDeleteGame: @escaping (String, Bool) -> Void = { _, _ in }) {
+                onPickGameData: @escaping (String) -> Void = { _ in }, onUseAppData: ((String) -> Void)? = nil,
+                onPickCloudSaves: ((String) -> Void)? = nil, onDisableCloudSaves: ((String) -> Void)? = nil,
+                onResetDefaults: ((String) -> Void)? = nil, onShowLog: ((String) -> Void)? = nil,
+                onAppUpdate: (() -> Void)? = nil, onBack: @escaping () -> Void = {},
+                onPickShellData: (() -> Void)? = nil, onPickShellCloud: (() -> Void)? = nil,
+                onUseShellCloud: ((String) -> Void)? = nil, onClearShellData: (() -> Void)? = nil,
+                onClearShellCloud: (() -> Void)? = nil,
+                onGlobalPadMapChange: ((String, String) -> Void)? = nil,
+                onGlobalPadMapReset: (() -> Void)? = nil, onButtonTest: @escaping (Bool) -> Void = { _ in },
+                onDeleteGame: ((String, Bool) -> Void)? = nil) {
         self.onSelect = onSelect
         self.onPlay = onPlay
         self.onChange = onChange

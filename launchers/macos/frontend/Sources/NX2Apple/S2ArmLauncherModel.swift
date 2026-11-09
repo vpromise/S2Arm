@@ -643,9 +643,11 @@ public final class S2ArmLauncherModel: ObservableObject {
                 self.control = nil
                 if !ControlPort.forced { try? self.provider.settings.setAIControl(false); self.aiControl = false }
                 self.aiControlError = why
+                ControlPort.reportStartFailure(privateRoot: self.provider.client.environment.privateRoot, why: why)
             }
         } catch {
             aiControlError = error.localizedDescription
+            ControlPort.reportStartFailure(privateRoot: provider.client.environment.privateRoot, why: error.localizedDescription)
             if !ControlPort.forced { try? provider.settings.setAIControl(false); aiControl = false }
         }
     }

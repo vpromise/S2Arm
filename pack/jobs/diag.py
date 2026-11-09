@@ -46,7 +46,7 @@ def devicectl(c, *args, timeout=120):
 def reachable(d):
     """连着线或隧道已通。数据线连着、已配对时隧道空闲是 disconnected，devicectl 用到会自己拉起（10-26 测试设备2 插着线被判「没连 iPhone」）"""
     cp = d.get("connectionProperties", {})
-    return cp.get("tunnelState") == "connected" or (cp.get("transportType") == "wired" and cp.get("pairingState") == "paired")
+    return cp.get("tunnelState") == "connected" or (cp.get("transportType") in ("wired", "localNetwork") and cp.get("pairingState") == "paired")
 
 
 def iml_hint(c, probe, app):

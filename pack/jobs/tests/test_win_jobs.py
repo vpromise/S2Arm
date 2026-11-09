@@ -181,6 +181,8 @@ class FakeW:
         return self.bid
     def push_pack(self, udid, bid, pack, devpush=None, full=False, say=None, docs=None, ctx=None, apply_after=False):
         """新接口（WinPhone.push 调）→ (文件数, 字节数)"""
+        if getattr(self, "needs_player", None):
+            e = self.Fail(self.needs_player, 0, "manual_unpack_required"); e.transferred = (787, 23_000_000_000); raise e
         return sum(1 for f in Path(pack).rglob("*") if f.is_file()), sum(f.stat().st_size for f in Path(pack).rglob("*") if f.is_file())
 
 
@@ -220,6 +222,13 @@ class WinInstall(unittest.TestCase):
         self.assertEqual((res["bundleId"], res["device"]), ("s2arm.T.0100", "U1"))
         self.assertEqual(w.calls[0].udid, "U1")
         self.assertEqual(Path(w.calls[0].ipa).suffix, ".ipa")
+
+    def test_cant_open_app_is_warning_not_failure(self):   # #192：Windows 同 Mac，传输数从异常带回（替身 787 个文件）
+        w = FakeW([("U1", "USB", 3)]); w.needs_player = "资源包已传完，还差最后一步：打开 App"
+        seen = []; self.c.diagnostic = lambda m, **k: seen.append((m, k))
+        res = self.go(w)
+        self.assertEqual(seen, [("资源包已传完，还差最后一步：打开 App", {"code": "manual_unpack_required", "severity": "warning"})])
+        self.assertEqual(res["packFiles"], 787)
 
     def test_device_choice_errors(self):
         for devs, want in (([("U1", "USB", 3), ("U2", "USB", 4)], None), ([], None), ([("U1", "USB", 3)], "U9")):

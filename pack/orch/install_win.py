@@ -125,7 +125,10 @@ def push_pack(udid, bid, pack, devpush=None, full=False, say=lambda m: print(m, 
         try:
             dev = P.device(udid, bid, w, udid, devpush, 'devpush', say=say, **({'docs': docs, 'ctx': ctx} if docs else {}))
             nb, nt, nbytes = P.run(dev, Path(pack), Path(w), full, say)
-            if apply_after: P.apply(dev, Path(pack), Path(w), nb, say)
+            if apply_after:
+                try: P.apply(dev, Path(pack), Path(w), nb, say)
+                except P.NeedsPlayer as e:   # 传输是成功的：带上传了多少，装机作业按提醒收尾（#192）
+                    need = Fail(str(e), 0, 'manual_unpack_required'); need.transferred = (nt, nbytes); raise need
         except P.Fail as e:
             raise Fail(f'推资源包失败：{e}', 1, 'device_install_failed')
     return nt, nbytes

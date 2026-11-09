@@ -31,6 +31,46 @@ def state(*tasks, queue=(), error=None):
     return {"tasks": list(tasks), "queue": list(queue), "error": error}
 
 
+class StartFailureTests(unittest.TestCase):
+    def run_start(self, why, stale=False):
+        now = [0]
+        with tempfile.TemporaryDirectory() as root:
+            error = Path(root) / "control.error"
+            def launch(*_args, **_kwargs):
+                error.write_text(why, encoding="utf-8")
+                if not stale:
+                    os.utime(error, (2000, 2000))
+            if stale:
+                error.write_text("上一次的错", encoding="utf-8")
+                os.utime(error, (1000, 1000))
+            def sleep(seconds):
+                now[0] += seconds
+            with mock.patch.object(ctl, "ROOT", root), mock.patch.object(ctl, "WINDOWS", False), \
+                 mock.patch.object(ctl, "info", side_effect=SystemExit("no control")), \
+                 mock.patch.object(ctl.subprocess, "run", side_effect=None if stale else launch), \
+                 mock.patch.object(ctl.time, "time", side_effect=lambda: now[0]), \
+                 mock.patch.object(ctl.time, "sleep", side_effect=sleep), \
+                 self.assertRaises(SystemExit) as caught:
+                ctl.start("/Applications/S2Arm.app")
+        return str(caught.exception.code), now[0]
+
+    def test_reason_is_reported_without_waiting(self):
+        message, waited = self.run_start("Private job root inherits permissions.")
+        self.assertIn("Private job root inherits permissions.", message)
+        self.assertIn("还不存在的路径", message)
+        self.assertEqual(waited, 0)
+
+    def test_other_reason_gets_no_data_root_advice(self):
+        message, _ = self.run_start("地址已被占用")
+        self.assertEqual(message, "控制口没起来：地址已被占用")
+
+    def test_failure_from_an_earlier_start_is_ignored(self):
+        message, waited = self.run_start("", stale=True)
+        self.assertIn("60 秒内控制口没就绪", message)
+        self.assertNotIn("上一次的错", message)
+        self.assertGreaterEqual(waited, 60)
+
+
 class WaitTests(unittest.TestCase):
     def run_wait(self, states, operation="build", limit=10):
         now = [0]

@@ -58,7 +58,7 @@ public sealed partial class EnvironmentWindow
             return reply;
         })); }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or System.Net.Sockets.SocketException)
-        { aiControl = false; aiControlError = error.Message; return; }
+        { aiControl = false; aiControlError = error.Message; ControlPort.ReportStartFailure(privateRoot, error.Message); return; }
         control.UpdateState(ControlReply.Json(ControlState()).Body);
         controlTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         controlTimer.Tick += (_, _) => control?.UpdateState(ControlReply.Json(ControlState()).Body);

@@ -141,6 +141,7 @@ s2armctl state | errors [游戏号] | logs <任务号|游戏号> [--lines N]
 | `device_locked` | human | 请玩家解锁手机、停在主屏幕，装的过程中别锁屏 |
 | `free_app_limit` | human | 免费 Apple ID 同时最多 3 个自签 App、每 7 天最多 10 个新包名：请玩家删掉不玩的自签 App，或过几天再装 |
 | `provisioning_expired` / `signing_failed` | ai | 再 `install` 一次（会重新申请）；还不行 `logs` 看签名哪步报错，必要时改用 AltStore（启动器「装到 iPhone」页底部有步骤，玩家本人登录） |
+| `manual_unpack_required`（警告） | human | 资源包已传完，电脑拉不起手机上的 App：让玩家在 iPhone 上打开这款游戏、保持前台等导入完，不要重推 |
 | `usb_slow`（警告） | human | 数据线是 USB 2：换 USB 3 的 USB-C 线、直插 Mac 会快很多（只有 iPhone 15 Pro 及更新的 Pro 机型支持 USB 3） |
 | `shell_sdk_old`（警告） | human | 包是旧版 Xcode 出的、iPhone 系统更新：iPhone Duo 等新机型上 App 缩小居中。请玩家更新 Xcode（不低于 iPhone 系统大版本）、启动器里选它后重新打 iPhone 包 |
 | `resource_transfer_failed` / `pack_missing` | ai | 资源没拷完：`push-pack <游戏号>`；提示没有资源包就重新导出 iPhone 版 |

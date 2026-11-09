@@ -72,31 +72,35 @@ struct ShellSettingsView: View {
                                 .accessibilityIdentifier("shellSettings.close")
                                 .shellTarget("shs.close", radius: 22, action: onClose)
                         }.id("shs.top")
-                        SettingsGroup(title: ShellStrings.text("Game data")) {
-                            SourceRow(symbol: "folder", title: store.dataFolderName ?? ShellStrings.text("No folder chosen"),
-                                      note: ShellStrings.text("Games look for their data here. Keep one romfs.img per game in any folder inside. Each game is found by the image itself, so the folder names do not matter. Each game can also have a folder of its own.")) {
-                                Button(ShellStrings.text("Choose folder…")) { actions.onPickShellData() }
-                                    .buttonStyle(ShellButtonStyle(fills: true)).accessibilityIdentifier("shellSettings.data")
-                                    .shellTarget("shs.data") { actions.onPickShellData() }
-                                if store.dataFolderName != nil {
-                                    Button(ShellStrings.text("Remove")) { actions.onClearShellData() }
-                                        .buttonStyle(ShellButtonStyle(fills: true)).accessibilityIdentifier("shellSettings.data.remove")
-                                        .shellTarget("shs.data.remove") { actions.onClearShellData() }
+                        if let pickData = actions.onPickShellData {
+                            SettingsGroup(title: ShellStrings.text("Game data")) {
+                                SourceRow(symbol: "folder", title: store.dataFolderName ?? ShellStrings.text("No folder chosen"),
+                                          note: ShellStrings.text("Games look for their data here. Keep one romfs.img per game in any folder inside. Each game is found by the image itself, so the folder names do not matter. Each game can also have a folder of its own.")) {
+                                    Button(ShellStrings.text("Choose folder…")) { pickData() }
+                                        .buttonStyle(ShellButtonStyle(fills: true)).accessibilityIdentifier("shellSettings.data")
+                                        .shellTarget("shs.data") { pickData() }
+                                    if let clearData = actions.onClearShellData, store.dataFolderName != nil {
+                                        Button(ShellStrings.text("Remove")) { clearData() }
+                                            .buttonStyle(ShellButtonStyle(fills: true)).accessibilityIdentifier("shellSettings.data.remove")
+                                            .shellTarget("shs.data.remove") { clearData() }
+                                    }
                                 }
                             }
                         }
-                        SettingsGroup(title: ShellStrings.text("Cloud saves")) {
-                            SourceRow(symbol: store.cloudSavesFolderName == nil ? "icloud.slash" : "icloud",
-                                      title: store.cloudSavesFolderName ?? ShellStrings.text("Off"),
-                                      note: ShellStrings.text("Games without a folder of their own save here. Choose the same iCloud Drive folder you use on your Mac.")) {
-                                Button(ShellStrings.text("Choose folder…")) { actions.onPickShellCloud() }
-                                    .buttonStyle(ShellButtonStyle(fills: true)).accessibilityIdentifier("shellSettings.cloud")
-                                    .shellTarget("shs.cloud") { actions.onPickShellCloud() }
-                                if store.cloudSavesFolderName != nil {
-                                    Button(ShellStrings.text("Turn off")) { actions.onClearShellCloud() }
-                                        .buttonStyle(ShellButtonStyle(fills: true)).accessibilityIdentifier("shellSettings.cloud.off")
-                                        .accessibilityLabel(ShellStrings.text("Turn off cloud saves"))
-                                        .shellTarget("shs.cloud.off") { actions.onClearShellCloud() }
+                        if let pickCloud = actions.onPickShellCloud {
+                            SettingsGroup(title: ShellStrings.text("Cloud saves")) {
+                                SourceRow(symbol: store.cloudSavesFolderName == nil ? "icloud.slash" : "icloud",
+                                          title: store.cloudSavesFolderName ?? ShellStrings.text("Off"),
+                                          note: ShellStrings.text("Games without a folder of their own save here. Choose the same iCloud Drive folder you use on your Mac.")) {
+                                    Button(ShellStrings.text("Choose folder…")) { pickCloud() }
+                                        .buttonStyle(ShellButtonStyle(fills: true)).accessibilityIdentifier("shellSettings.cloud")
+                                        .shellTarget("shs.cloud") { pickCloud() }
+                                    if let clearCloud = actions.onClearShellCloud, store.cloudSavesFolderName != nil {
+                                        Button(ShellStrings.text("Turn off")) { clearCloud() }
+                                            .buttonStyle(ShellButtonStyle(fills: true)).accessibilityIdentifier("shellSettings.cloud.off")
+                                            .accessibilityLabel(ShellStrings.text("Turn off cloud saves"))
+                                            .shellTarget("shs.cloud.off") { clearCloud() }
+                                    }
                                 }
                             }
                         }

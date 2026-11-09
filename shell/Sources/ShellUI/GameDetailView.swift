@@ -40,39 +40,43 @@ public struct GameDetailView: View {
                     Button(ShellStrings.text("Choose…")) { actions.onPickGameData(detail.id) }
                         .buttonStyle(ShellButtonStyle(fills: true)).accessibilityLabel(ShellStrings.text("Choose game data…"))
                         .shellTarget("set.data") { actions.onPickGameData(detail.id) }
-                    if !detail.dataSource.isEmpty && !detail.dataFromShell {
-                        Button(ShellStrings.text("Use app data")) { actions.onUseAppData(detail.id) }
-                            .buttonStyle(ShellButtonStyle(fills: true)).shellTarget("set.appdata") { actions.onUseAppData(detail.id) }
+                    if let useAppData = actions.onUseAppData, !detail.dataSource.isEmpty && !detail.dataFromShell {
+                        Button(ShellStrings.text("Use app data")) { useAppData(detail.id) }
+                            .buttonStyle(ShellButtonStyle(fills: true)).shellTarget("set.appdata") { useAppData(detail.id) }
                     }
                 }
                 divider
                 Label(detail.dlc.isEmpty ? ShellStrings.text("No additional content") : detail.dlc, systemImage: "square.stack.3d.up")
                     .shellText(14).foregroundStyle(.white.opacity(0.72)).frame(minHeight: 32)
             }
-            group(ShellStrings.text("Cloud saves")) {
-                SourceRow(symbol: detail.cloudSaves == nil ? "icloud.slash" : "icloud",
-                          title: detail.cloudSaves ?? ShellStrings.text("Off"),
-                          note: detail.cloudNote.isEmpty ? ShellStrings.text("Choose the same iCloud Drive folder you use on your Mac.") : detail.cloudNote) {
-                    Button(ShellStrings.text("Choose folder…")) { actions.onPickCloudSaves(detail.id) }
-                        .buttonStyle(ShellButtonStyle(fills: true)).shellTarget("set.cloud") { actions.onPickCloudSaves(detail.id) }
-                    if detail.cloudCanUseShell {
-                        Button(ShellStrings.text("Use Settings folder")) { actions.onUseShellCloud(detail.id) }
-                            .buttonStyle(ShellButtonStyle(fills: true)).shellTarget("set.cloud.shell") { actions.onUseShellCloud(detail.id) }
-                    }
-                    if detail.cloudSaves != nil {
-                        Button(ShellStrings.text("Turn off")) { actions.onDisableCloudSaves(detail.id) }
-                            .buttonStyle(ShellButtonStyle(fills: true)).accessibilityLabel(ShellStrings.text("Turn off cloud saves"))
-                            .shellTarget("set.cloud.off") { actions.onDisableCloudSaves(detail.id) }
+            if let pickCloud = actions.onPickCloudSaves {
+                group(ShellStrings.text("Cloud saves")) {
+                    SourceRow(symbol: detail.cloudSaves == nil ? "icloud.slash" : "icloud",
+                              title: detail.cloudSaves ?? ShellStrings.text("Off"),
+                              note: detail.cloudNote.isEmpty ? ShellStrings.text("Choose the same iCloud Drive folder you use on your Mac.") : detail.cloudNote) {
+                        Button(ShellStrings.text("Choose folder…")) { pickCloud(detail.id) }
+                            .buttonStyle(ShellButtonStyle(fills: true)).shellTarget("set.cloud") { pickCloud(detail.id) }
+                        if let useShellCloud = actions.onUseShellCloud, detail.cloudCanUseShell {
+                            Button(ShellStrings.text("Use Settings folder")) { useShellCloud(detail.id) }
+                                .buttonStyle(ShellButtonStyle(fills: true)).shellTarget("set.cloud.shell") { useShellCloud(detail.id) }
+                        }
+                        if let disableCloud = actions.onDisableCloudSaves, detail.cloudSaves != nil {
+                            Button(ShellStrings.text("Turn off")) { disableCloud(detail.id) }
+                                .buttonStyle(ShellButtonStyle(fills: true)).accessibilityLabel(ShellStrings.text("Turn off cloud saves"))
+                                .shellTarget("set.cloud.off") { disableCloud(detail.id) }
+                        }
                     }
                 }
             }
-            VStack(alignment: .leading, spacing: 10) {
-                Button(ShellStrings.text("Reset to tested defaults")) { actions.onResetDefaults(detail.id) }
-                    .buttonStyle(ShellButtonStyle(fills: true))
-                    .disabled(!detail.hasModifiedSettings)
-                    .shellTarget("set.reset", enabled: detail.hasModifiedSettings) { actions.onResetDefaults(detail.id) }
-                Text(ShellStrings.text("Brings back the settings this game was tested with."))
-                    .shellText(12.5).foregroundStyle(.white.opacity(0.45)).fixedSize(horizontal: false, vertical: true)
+            if let resetDefaults = actions.onResetDefaults {
+                VStack(alignment: .leading, spacing: 10) {
+                    Button(ShellStrings.text("Reset to tested defaults")) { resetDefaults(detail.id) }
+                        .buttonStyle(ShellButtonStyle(fills: true))
+                        .disabled(!detail.hasModifiedSettings)
+                        .shellTarget("set.reset", enabled: detail.hasModifiedSettings) { resetDefaults(detail.id) }
+                    Text(ShellStrings.text("Brings back the settings this game was tested with."))
+                        .shellText(12.5).foregroundStyle(.white.opacity(0.45)).fixedSize(horizontal: false, vertical: true)
+                }
             }
             if let askDelete {
                 // Last and apart from the rest: the one action here that removes something. It only asks, the question names what goes.

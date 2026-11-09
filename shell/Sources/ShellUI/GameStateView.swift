@@ -41,8 +41,8 @@ public struct GameStateView: View {
         switch game.state {
         case .playable: actions.onPlay(game.id)
         case .needsGameData: actions.onPickGameData(game.id)
-        case .needsAppUpdate: actions.onAppUpdate()
-        case .broken: actions.onShowLog(game.id)
+        case .needsAppUpdate: actions.onAppUpdate?()
+        case .broken: actions.onShowLog?(game.id)
         }
     }
 }
@@ -81,16 +81,20 @@ public struct StateHelpView: View {
                     .shellTarget("help.done", radius: 25, action: onClose)
                 switch game.state {
                 case .broken:
-                    Button(ShellStrings.text("Show log")) { actions.onShowLog(game.id) }
-                        .buttonStyle(ShellButtonStyle(fills: true))
-                        .accessibilityHint(ShellStrings.text("For a bug report"))
-                        .accessibilityIdentifier("help.log")
-                        .shellTarget("help.log") { actions.onShowLog(game.id) }
+                    if let showLog = actions.onShowLog {
+                        Button(ShellStrings.text("Show log")) { showLog(game.id) }
+                            .buttonStyle(ShellButtonStyle(fills: true))
+                            .accessibilityHint(ShellStrings.text("For a bug report"))
+                            .accessibilityIdentifier("help.log")
+                            .shellTarget("help.log") { showLog(game.id) }
+                    }
                 case .needsAppUpdate:
-                    Button(ShellStrings.text("Update app")) { actions.onAppUpdate() }
-                        .buttonStyle(ShellButtonStyle(fills: true))
-                        .accessibilityIdentifier("help.update")
-                        .shellTarget("help.update") { actions.onAppUpdate() }
+                    if let update = actions.onAppUpdate {
+                        Button(ShellStrings.text("Update app")) { update() }
+                            .buttonStyle(ShellButtonStyle(fills: true))
+                            .accessibilityIdentifier("help.update")
+                            .shellTarget("help.update") { update() }
+                    }
                 default:
                     EmptyView()
                 }
