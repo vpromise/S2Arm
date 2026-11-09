@@ -390,6 +390,9 @@ namespace S2A.Services.Tests
             _rows.Add((name, e, a, e == a));
         }
 
+        // 不随仓库分发的玩家数据（游戏 romfs、系统数据）：缺了打「未覆盖」一行、不计不符；判据不符仍走 Check
+        internal static void CheckUncovered(string name, string why) => _rows.Add((name, "未覆盖", why, true));
+
         private static string Fmt(object o) => o switch
         {
             uint u => $"0x{u:X}",
@@ -2534,7 +2537,7 @@ namespace S2A.Services.Tests
             }
             else
             {
-                Check("动森登记 + fs 读 RomFS", "已测", $"未测（没有 {game}/romfs）");
+                CheckUncovered("动森登记 + fs 读 RomFS", $"未覆盖（没有 {game}/romfs，玩家自己的游戏数据）");
             }
 
             // ---- 系统数据按号（fsp-srv OpenDataStorageByDataId）：马车8 产物根的 0100000000000802 Mii 资源 ----
@@ -2562,7 +2565,7 @@ namespace S2A.Services.Tests
             }
             else
             {
-                Check("系统数据按号", "已测", $"未测（没有 {sysRoot}/0100000000000802）");
+                CheckUncovered("系统数据按号", $"未覆盖（没有 {sysRoot}/0100000000000802，玩家自己的游戏数据）");
             }
 
             // ---- 共享字体（pl:u）：本机旧库字体数据（S2A_SHARED_FONT_DIR，不进仓库；没有就记未测）----

@@ -184,6 +184,7 @@ void s2a_dprompt_ask(NSString *title, NSString *body, NSString *accept, NSString
     int32_t _slotX[16], _slotY[16]; uint8_t _slotState[16]; BOOL _slotStart[16];   // 0 空闲 / 1 按住 / 2 等发 End
     NSMapTable<UITouch *, NSNumber *> *_slot;
     UILabel *_hud;                          // 触屏真值那一行（见 g_hud_on）
+    UIButton *_gear; NSTimer *_gearFade;    // 游戏内设置入口：屏幕左上角常驻，闲置时淡到看得见但不抢画面
     UISegmentedControl *_mode;              // 「键 / 触」切换钮：游戏启用触屏后常驻屏幕上方正中（两种方案下都显示），一点就切
     BOOL _touchWanted;                      // 游戏启用过触屏（s2a_vpad_touch_wanted）
     int _autoTouch;                         // 自动切（游戏声明触屏配置，manual=0）的本次运行覆盖：1 = 本次按仅触屏跑、不改持久化选择；0 = 没有覆盖
@@ -254,6 +255,11 @@ static NSString *button_label(NSString *identifier) {
     [_mode setTitleTextAttributes:@{NSForegroundColorAttributeName: UIColor.blackColor} forState:UIControlStateSelected];
     [_mode addTarget:self action:@selector(modeTapped:) forControlEvents:UIControlEventValueChanged];
     [self addSubview:_mode];
+    _gear = [UIButton buttonWithType:UIButtonTypeSystem]; _gear.accessibilityIdentifier = @"vpad.settings"; _gear.accessibilityLabel = @"设置";
+    [_gear setImage:[UIImage systemImageNamed:@"gearshape.fill"] forState:UIControlStateNormal]; _gear.tintColor = UIColor.whiteColor;
+    _gear.backgroundColor = [UIColor colorWithWhite:0 alpha:0.45]; _gear.layer.cornerRadius = 18;
+    [_gear addTarget:self action:@selector(gearTapped) forControlEvents:UIControlEventTouchUpInside];
+    [self addSubview:_gear]; [self wakeGear];
     for (int i = 0; i < 2; i++) {
         _ring[i] = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 124, 124)]; _ring[i].layer.cornerRadius = 62;
         // 摇杆区用方案二「石墨」（11-07 维护者：B 方案的两个摇杆区替换 C 方案的）：深灰半透明实底、无描边，摇杆头浅灰
@@ -268,7 +274,13 @@ static NSString *button_label(NSString *identifier) {
     [self wake];
     return self;
 }
-- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; [_fade invalidate]; [_holdLockTimer invalidate]; }
+- (void)wakeGear {   // 刚显示时看得清，3 秒后淡到 0.35：玩家找得到，又不挡画面
+    [_gearFade invalidate]; _gear.alpha = 0.9;
+    _gearFade = [NSTimer scheduledTimerWithTimeInterval:3 repeats:NO block:^(NSTimer *t) { (void)t;
+        [UIView animateWithDuration:0.4 animations:^{ self->_gear.alpha = 0.35; }]; }];
+}
+- (void)gearTapped { [self wakeGear]; void s2a_diag_open_menu(void); s2a_diag_open_menu(); }   // 同四指长按：游戏不退出，菜单开着时触屏输入停住
+- (void)dealloc { [NSNotificationCenter.defaultCenter removeObserver:self]; [_gearFade invalidate]; [_fade invalidate]; [_holdLockTimer invalidate]; }
 - (void)clearTouches {
     [_fade invalidate]; _fade = nil;
     [_held removeAllObjects]; _stickPress = 0;
@@ -493,6 +505,9 @@ static NSString *button_label(NSString *identifier) {
     [super layoutSubviews]; CGRect safe = [self layoutSafeRect];
     // 「键 / 触」切换钮：安全区上沿正中（默认布局四角是 L / ZL / R / ZR，正中上方没有按键）；提示条也在上方正中、压在它上面
     _mode.frame = CGRectMake(CGRectGetMidX(safe) - 44, CGRectGetMinY(self.safeAreaLayoutGuide.layoutFrame) + 4, 88, 28); [self bringSubviewToFront:_mode];
+    {   // 设置入口放安全区左上角；折叠屏内屏圆角比安全区报的大、又有开孔，四周再让 20 点（短边 ≥ 500 点才算大屏）
+        CGRect g = self.safeAreaLayoutGuide.layoutFrame; CGFloat inset = MIN(self.bounds.size.width, self.bounds.size.height) >= 500 ? 20 : 4;
+        _gear.frame = CGRectMake(CGRectGetMinX(g) + inset, CGRectGetMinY(g) + inset, 36, 36); _gear.hidden = _editing; [self bringSubviewToFront:_gear]; }
     if (!CGRectEqualToRect(_safeRect, safe) || !CGRectEqualToRect(_lastBounds, self.bounds)) {
         if (_editing) [self endEditing];   // 转屏 / 安全区变了：拖到一半的位置按旧几何算，放弃
         [self clearTouches]; _safeRect = safe; _lastBounds = self.bounds;

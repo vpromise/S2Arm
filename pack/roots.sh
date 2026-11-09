@@ -128,7 +128,7 @@ _root_romfs_intern() {
   st=$(dirname "$w")/$_ROOT_STORE/$g; mkdir -p "$st" || return 1
   id=$(basename "$w"); id=${id#*@}; id=${id%%.tmp*}-$(date +%s); while [ -e "$st/$id" ] || [ -L "$st/$id" ]; do n=$((n + 1)); id=${id%~*}~$n; done
   # 跨目录 rename 一个目录要它自己可写（改 ..）：开工时已只读的（_root_romfs_seal）先只给顶层加回写位，搬完再整棵只读（同权限不动文件 ctime）
-  _root_rm "$w/.romfs.intern"; mv "$w/romfs" "$w/.romfs.intern" && ln -s "../$_ROOT_STORE/$g/$id" "$w/romfs" && chmod u+w "$w/.romfs.intern" && mv "$w/.romfs.intern" "$st/$id" && chmod -R a-w "$st/$id" || return 1
+  _root_rm "$w/.romfs.intern"; chmod u+w "$w/romfs" && mv "$w/romfs" "$w/.romfs.intern" && ln -s "../$_ROOT_STORE/$g/$id" "$w/romfs" && chmod u+w "$w/.romfs.intern" && mv "$w/.romfs.intern" "$st/$id" && chmod -R a-w "$st/$id" || return 1
 }
 # _root_romfs_seal <W.tmp>：从旧格式现行（romfs 是真目录）克隆来的 romfs 开工时就整棵只读（ROOT_OWN_ROMFS=1 的阶段除外）：
 #   阶段照样写不进 RomFS；放在资源键克隆交接之前，交接记下的 ctime 就是只读之后的，提交时收进存储只是 rename、不再改文件，资源键缓存不失效

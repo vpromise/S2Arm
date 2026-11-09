@@ -172,7 +172,7 @@ class AndroidDeliveryTest(unittest.TestCase):
         row = result.stdout.strip().split('\t')
         self.assertEqual(len(row), 4, result.stderr)
         self.assertEqual(row[1], '2048')
-        self.assertEqual(row[2], str(int(original.stat().st_mtime)))
+        self.assertEqual(row[2].split('.')[0], str(int(original.stat().st_mtime)))   # 脚本记到纳秒
         self.assertEqual(row[3], '0100000000000000')
         self.assertEqual(result.stderr, '')
 

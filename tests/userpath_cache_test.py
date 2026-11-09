@@ -90,7 +90,7 @@ sys.path.insert(0, str(R / 'pack/jobs'))
 import core
 with tempfile.TemporaryDirectory() as t:
     class C: pass
-    c = C(); c.private = Path(t) / 'S2Arm 私有'; c.private.mkdir(); c.r = {}; c.default_developer = None; c.engine = Path(t) / 'engine'; c.task = 't'
+    c = C(); c.private = Path(t) / 'S2Arm 私有'; c.private.mkdir(); c.work_root = c.private; c.r = {}; c.default_developer = None; c.engine = Path(t) / 'engine'; c.task = 't'
     os.environ.update(S2A_MACHINE_NO_LOCAL='0', S2A_CPU_LEDGER='1')   # 模拟我方开发机的外层环境：作业环境要盖掉
     try: env = core.Context.env(c)
     except Exception as e: env = {}; print('    env 失败：', type(e).__name__, e)
