@@ -106,8 +106,8 @@ def runtime_env(c, game, runtime):
     docs = contained(c.library, c.library / "temp" / game["id"])
     for p in (save, cache, docs):
         p.mkdir(parents=True, exist_ok=True)
-    # S2A_SAVE_DIR is a test/import seed that clears saves at boot; never set it
-    # for normal play. Persist the Ryujinx data root instead.
+    # S2A_SAVE_DIR is a test/import seed that clears saves at boot; launch() sets it
+    # only for a save the player just imported, never for normal play. Persist the Ryujinx data root instead.
     env.update(S2A_GAME_DATA=str(runtime), S2A_RYU_DATA=str(save), S2A_DOCS=str(docs),
                NXGAL_SHADER_CACHE_DIR=str(cache / "shaders"), NXGAL_PSO_DEV_DIR=str(cache / "pso"),
                S2A_MACRO_DUMP=str(cache / "macros"),
@@ -156,6 +156,10 @@ def launch(c):
             if not supported:
                 raise Failure("此运行包的宿主未确认支持映射，请重新打包游戏后再使用键位引导。", code="runtime_invalid")
         env = runtime_env(c, game, runtime)
+        from saves import claim_seed, finish_seed
+        seed = claim_seed(c, game["id"])
+        if seed:
+            env["S2A_SAVE_DIR"] = str(seed)   # 玩家导入过存档、这是第一次启动：运行时建好存档再灌入
         env.update(community.launch_env(c, game["id"]))   # 宽屏 / 60 帧宿主开关（社区资源面板，10-27）：关掉的才设，下次启动生效
         try:
             c.begin("游戏运行中")
@@ -163,6 +167,8 @@ def launch(c):
             c.run([runtime / "S2ArmGame.app/Contents/MacOS/s2arm-host", runtime], log, env,
                   cwd=c.library / "temp" / game["id"])
         finally:
+            if seed:
+                finish_seed(c, game["id"], log)
             # Context.run waits for the host, including failure/cancellation.
             # Do not accumulate per-run snapshots after the process exits.
             if env.get("S2A_INPUT_CONFIG"):

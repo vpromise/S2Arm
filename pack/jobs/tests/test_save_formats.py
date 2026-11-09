@@ -56,6 +56,32 @@ class SaveFormatTests(unittest.TestCase):
                 archive.writestr(relative, content)
         return path
 
+    def test_nx2apple_game_folder(self):
+        tid = "0100000000010000"
+        root = self.tree(tid, {"save/a.bin": b"a", "save.work/x": b"uncommitted", "save_device/b.bin": b"b"})
+        with save_formats.extracted(root, tid=tid) as (layout, data, program, kind, _):
+            self.assertEqual((layout, os.path.basename(data), program, kind), ("nx2apple", "save", tid, "account"))
+        # 外层文件夹名不是游戏号：程序号用调用方给的
+        renamed = self.tree("copied", {"save/a.bin": b"a"})
+        with save_formats.extracted(renamed, tid=tid) as (_, _, program, kind, _):
+            self.assertEqual((program, kind), (tid, "account"))
+        only_device = self.tree("device", {"save_device/b.bin": b"b"})
+        with save_formats.extracted(only_device, tid=tid) as (_, data, _, kind, _):
+            self.assertEqual((os.path.basename(data), kind), ("save_device", "device"))
+
+    def test_folder_with_other_contents_is_not_nx2apple(self):
+        # 游戏自己的存档里恰好有 save 子目录，旁边还有别的：不能当成 NX2Apple
+        root = self.tree("native", {"save/a.bin": b"a", "other/b.bin": b"b", "top.bin": b"c"})
+        with save_formats.extracted(root, tid="0100000000010000") as (layout, data, _, kind, _):
+            self.assertNotEqual(layout, "nx2apple"); self.assertIsNone(kind)
+
+    def test_direct_save_device_folder_says_its_type(self):
+        tid = "0100000000010000"
+        with save_formats.extracted(self.tree("x/save_device", {"b.bin": b"b"}), tid=tid) as (_, _, _, kind, _):
+            self.assertEqual(kind, "device")
+        with save_formats.extracted(self.tree("y/save", {"a.bin": b"a"}), tid=tid) as (_, _, _, kind, _):
+            self.assertIsNone(kind)
+
     def test_edizon_marker_locates_named_backup_among_unrelated_siblings(self):
         relative = "export/named backup"
         source = self.tree(

@@ -719,6 +719,19 @@ class ExternalImportTests(unittest.TestCase):
         self.assertTrue(Path(result["previousBackup"]).is_file())
         self.assertEqual(preview["fileCount"], len(preview["manifest"]["files"]))
 
+    def test_game_with_account_and_device_saves_takes_each_folder_to_its_own_slot(self):
+        # NX2Apple 的马车 8 这类游戏：save → 账户存档，save_device → 设备存档；互不影响
+        self.put(saves.SAVE_INDEX, synthetic_index([(1, GID, 1, USER), (2, GID, 3, "0" * 32)]))
+        self.put("bis/user/save/0000000000000002/0/device.bin", b"old-device")
+        src = self.community("nx", {"save/progress.bin": b"account-new"})
+        self.assertTrue(self.import_(src / "save")[0]["committed"])
+        self.assertEqual((self.root / PROGRESS).read_bytes(), b"account-new")
+        self.assertEqual((self.root / "bis/user/save/0000000000000002/0/device.bin").read_bytes(), b"old-device")
+        src = self.community("nx2", {"save_device/device.bin": b"device-new"})
+        self.assertTrue(self.import_(src / "save_device")[0]["committed"])
+        self.assertEqual((self.root / "bis/user/save/0000000000000002/0/device.bin").read_bytes(), b"device-new")
+        self.assertEqual((self.root / PROGRESS).read_bytes(), b"account-new")
+
     def test_zero_directory_judged_against_this_games_own_slot(self):
         # 10-27：社区存档唯一子目录 0/ —— 游戏自己的槽 0 顶层是 progress.bin → 0/ 是提交目录，剥掉；
         # 游戏自己的槽 0 顶层有 0/ 目录（塞尔达式槽位）→ 不剥，原样放进槽 0
@@ -807,14 +820,61 @@ class ExternalImportTests(unittest.TestCase):
         self.assertEqual(e.exception.code, "save_wrong_game")
         self.assertEqual((self.root / PROGRESS).read_bytes(), b"checkpoint-one")
 
-    def test_game_without_save_location_asks_to_run_once(self):
+    def test_game_never_played_takes_the_save_on_next_launch(self):
         import shutil
 
         shutil.rmtree(self.root / "bis")
-        src = self.community("raw", {"Synthetic game/Player/progress.bin": b"x"})
-        with patch.object(saves.save_formats, "detect", return_value=[]), self.assertRaises(Failure) as e:
-            saves.inspect(self.context(operation="saveInspect", path=str(src)))
-        self.assertEqual(e.exception.code, "save_no_target")
+        src = self.community("raw", {"progress.bin": b"native-save", "sub/more.bin": b"more"})
+        preview = saves.inspect(self.context(operation="saveInspect", path=str(src)))
+        self.assertEqual(preview["notice"], saves.SEED_NOTICE)
+        self.assertEqual((preview["fileCount"], preview["totalBytes"]), (2, 15))
+        c = self.context(operation="saveRestore", path=str(src), **preview)
+        self.assertTrue(saves.restore(c)["committed"])
+        pending = saves.pending_seed(c, GID)
+        self.assertEqual((pending / "account/progress.bin").read_bytes(), b"native-save")
+        self.assertEqual((pending / "account/sub/more.bin").read_bytes(), b"more")
+        self.assertEqual(saves.claim_seed(c, GID), pending)
+        log = self.directory / "game.log"
+        log.write_text("启动失败，没灌入", encoding="utf-8")
+        saves.finish_seed(c, GID, log)
+        self.assertEqual(saves.claim_seed(c, GID), pending)   # 没灌成功：留着，下次启动再放
+        log.write_text("S2A 带存档起局：account ← x（2 个文件，15 字节）", encoding="utf-8")
+        saves.finish_seed(c, GID, log)
+        self.assertIsNone(saves.claim_seed(c, GID))
+
+    def test_never_played_game_changed_since_preview_is_refused(self):
+        import shutil
+
+        shutil.rmtree(self.root / "bis")
+        src = self.community("raw", {"progress.bin": b"one"})
+        preview = saves.inspect(self.context(operation="saveInspect", path=str(src)))
+        (src / "progress.bin").write_bytes(b"two")
+        with self.assertRaises(Failure) as e:
+            saves.restore(self.context(operation="saveRestore", path=str(src), **preview))
+        self.assertEqual(e.exception.code, "save_changed")
+
+    def test_device_only_game_seeds_the_device_slot(self):
+        import shutil, struct
+
+        shutil.rmtree(self.root / "bis")
+        c = self.context(operation="saveInspect", path="x")
+        nacp = c.library / "games" / GID / "current" / "ctl" / "control.nacp"
+        nacp.parent.mkdir(parents=True, exist_ok=True)
+        data = bytearray(0x30A0); struct.pack_into("<q", data, 0x3090, 1 << 20); nacp.write_bytes(data)
+        src = self.community("raw", {"progress.bin": b"island"})
+        preview = saves.inspect(self.context(operation="saveInspect", path=str(src)))
+        c = self.context(operation="saveRestore", path=str(src), **preview)
+        saves.restore(c)
+        self.assertEqual((saves.pending_seed(c, GID) / "device/progress.bin").read_bytes(), b"island")
+
+    def test_own_backup_never_takes_the_seed_path(self):
+        import shutil
+
+        backup = self.directory / "b.s2asave"
+        saves.backup(self.context(operation="saveBackup", path=str(backup)))
+        shutil.rmtree(self.root / "bis")
+        c = self.context(operation="saveInspect", path=str(backup))
+        self.assertNotEqual(saves.inspect(c).get("notice"), saves.SEED_NOTICE)
 
     def test_inspect_and_restore_use_the_same_cached_conversion(self):
         src = self.community("Checkpoint", {f"saves/0x{GID} Synthetic/20261020-120000 Player/progress.bin": b"same"})

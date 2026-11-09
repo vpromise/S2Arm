@@ -57,6 +57,7 @@ struct SaveManageSheet: View {
     let gameID: String
     @StateObject private var state = SaveSheetState()
     @State private var confirming = false
+    @State private var dropTargeted = false
 
     init(model: S2ArmLauncherModel, gameID: String) {
         self.model = model
@@ -110,6 +111,12 @@ struct SaveManageSheet: View {
         } message: {
             Text(String(format: t("save.confirmMessage"), gameName))
         }
+        .overlay {
+            if dropTargeted {
+                RoundedRectangle(cornerRadius: 12).strokeBorder(LauncherPalette.cream, lineWidth: 2).padding(8).allowsHitTesting(false)
+            }
+        }
+        .onDrop(of: [.fileURL], isTargeted: $dropTargeted, perform: drop)
         .onAppear { refresh() }
         .onDisappear { state.stop() }
         .interactiveDismissDisabled(state.running == .restore)
@@ -183,7 +190,7 @@ struct SaveManageSheet: View {
     }
 
     private var restoreCard: some View {
-        CardGroup(t("save.restore"), footnote: t("save.restoreNote")) {
+        CardGroup(t("save.restore"), footnote: t("save.restoreNote") + "\n" + t("save.dropHint")) {
             CardRow(t("save.chooseRow"), detail: state.preview?.source.lastPathComponent ?? t("save.chooseDetail")) {
                 Button(t("save.choose")) { choose() }.buttonStyle(LauncherSecondaryButtonStyle()).disabled(blocked)
             }
@@ -260,10 +267,24 @@ struct SaveManageSheet: View {
         panel.canChooseDirectories = true
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        inspect(url)
+    }
+
+    private func inspect(_ url: URL) {
         state.setPreview(nil)
         state.run(.inspect, failed: reason) { [model, gameID, state] events in
             state.setPreview(try await model.saveInspect(gameID, source: url, events: events))
         }
+    }
+
+    /// 拖进来的第一项走和「选择」同一条路：先检查、看预览，确认后才覆盖。
+    private func drop(_ providers: [NSItemProvider]) -> Bool {
+        guard !blocked, let provider = providers.first else { return false }
+        _ = provider.loadObject(ofClass: URL.self) { url, _ in
+            guard let url, url.isFileURL else { return }
+            DispatchQueue.main.async { inspect(url) }
+        }
+        return true
     }
 
     /// 恢复成了清掉预览（同一份备份要再恢复得重新检查），再重读状态；事务记录没清完用作业层原话、按警告显示。

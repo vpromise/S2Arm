@@ -6,6 +6,7 @@
   yuzu        …/nand/user/save/0000000000000000/<32 位用户号>/<程序号>/（用户号全 0 = 设备存档）
   checkpoint  …/0x<程序号> <游戏名>/<时间戳 …>/（取最新一份）
   jksv        JKSV/<游戏名>/<用户名 - 时间戳>/ 或 zip（路径里没有程序号，调用方给 tid）；下钻到第一层有文件的目录，同层取最新
+  nx2apple    <游戏号>/save（账户存档）、save_device（设备存档）；旁边的 .work / .new 是未提交的副本，不算存档
   raw         直接就是游戏存档文件；外面套的程序号 / 用户号目录剥掉，套着 JKSV 目录的按 JKSV；
               唯一子目录「0」有两种解释（Ryujinx 提交目录 / 游戏自己的槽位目录，如塞尔达 0/…5/），按调用方给的
               「这款游戏自己写出的存档顶层」（ref）比对决定剥不剥；没有参照或比不出 → 不剥、说明里报「结构存疑」
@@ -24,7 +25,8 @@ import zipfile
 
 SKIP = {".DS_Store", "Thumbs.db", "desktop.ini", "edizon_save_metadata.json"}
 RYU_META = {"ExtraData0", "ExtraData1"}
-LAYOUTS = ("ryujinx", "yuzu", "checkpoint", "jksv", "raw")
+LAYOUTS = ("ryujinx", "yuzu", "checkpoint", "jksv", "nx2apple", "raw")
+NX2APPLE_FOLDERS = {"save": "account", "save_device": "device"}
 # 说明里带这个词 = 识别没定下来、按保守解释导入（zero_layer 的「结构存疑：…」）；
 # 调用方（pack/jobs/saves.py 的 inspect）靠它把这类说明翻成给玩家的一句提示，不当成导入失败的证据
 DOUBT = "结构存疑"
@@ -81,6 +83,12 @@ def latest_child(d):
 def detect(src):
     """返回 [(布局, 存档目录, 程序号, 类型或 None, 说明)]，一个来源里可能有多份。"""
     found = []
+    subs = {x for x in os.listdir(src) if os.path.isdir(os.path.join(src, x)) and not x.startswith(".")}
+    folders = [x for x in NX2APPLE_FOLDERS if x in subs and files_under(os.path.join(src, x))]
+    if folders and all(x in NX2APPLE_FOLDERS or x.endswith((".work", ".new")) for x in subs):
+        # 外层文件夹就是 <游戏号> 时用它；否则由调用方给的程序号定（程序号留空）
+        name = os.path.basename(src.rstrip("/\\")).lower()
+        return [("nx2apple", os.path.join(src, folders[0]), name if re.fullmatch(r"[0-9a-f]{16}", name) else None, NX2APPLE_FOLDERS[folders[0]], "NX2Apple " + folders[0])]
     for base, dirs, _ in os.walk(src):
         parts = base[len(src):].strip("/").split("/") if base != src else []
         if len(parts) >= 2 and parts[-1] == "0" and re.fullmatch(r"[0-9a-fA-F]{16}", parts[-2]):
@@ -136,6 +144,7 @@ def extracted(src, tid=None, layout=None, ref=None):
         tid = tid.lower().removeprefix("0x") if tid else None
         hits = [] if layout in ("jksv", "raw") else detect(src)
         if tid:
+            hits = [(h[0], h[1], h[2] or tid, h[3], h[4]) for h in hits]
             hits = [h for h in hits if h[2] == tid] or hits
         if layout and layout not in ("jksv", "raw"):
             hits = [h for h in hits if h[0] == layout]
@@ -176,7 +185,8 @@ def extracted(src, tid=None, layout=None, ref=None):
                         if not strip:
                             break
                     d = latest_child(d)
-            result = (lay, d, tid, None, why)
+            kind = "device" if os.path.basename(src.rstrip("/\\")) == "save_device" else None   # 直接拖 NX2Apple 的 save_device 文件夹：名字说明了类型
+            result = (lay, d, tid, kind, why)
         if not files_under(result[1]):
             raise ValueError(f"{result[1]} 下没有存档文件")
         yield result

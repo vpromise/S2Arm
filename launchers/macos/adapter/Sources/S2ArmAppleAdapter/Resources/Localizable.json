@@ -6630,5 +6630,9 @@
  {
   "source": "按上面的提示做完，再点一次安装。",
   "en": "Follow the steps above, then tap Install again."
+ },
+ {
+  "source": "这款游戏在这台电脑上还没玩过：存档会在下次启动游戏时放进去。",
+  "en": "You haven't played this game on this Mac yet. The save will be added the next time you start the game."
  }
 ]
